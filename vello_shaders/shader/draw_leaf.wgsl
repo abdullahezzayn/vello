@@ -110,7 +110,8 @@ fn main(
         let di = m.info_offset;
         if tag_word == DRAWTAG_FILL_COLOR || tag_word == DRAWTAG_FILL_LIN_GRADIENT ||
             tag_word == DRAWTAG_FILL_RAD_GRADIENT || tag_word == DRAWTAG_FILL_SWEEP_GRADIENT ||
-            tag_word == DRAWTAG_FILL_IMAGE || tag_word == DRAWTAG_BEGIN_CLIP || tag_word == DRAWTAG_BLURRED_ROUNDED_RECT
+            tag_word == DRAWTAG_FILL_IMAGE || tag_word == DRAWTAG_BEGIN_CLIP ||
+            tag_word == DRAWTAG_BLURRED_ROUNDED_RECT || tag_word == DRAWTAG_BACKDROP_BLUR_RECT
         {
             let bbox = path_bbox[m.path_ix];
             // TODO: bbox is mostly yagni here, sort that out. Maybe clips?
@@ -123,7 +124,8 @@ fn main(
             let draw_flags = bbox.draw_flags;
             if tag_word == DRAWTAG_FILL_LIN_GRADIENT || tag_word == DRAWTAG_FILL_RAD_GRADIENT ||
                 tag_word == DRAWTAG_FILL_SWEEP_GRADIENT || tag_word == DRAWTAG_FILL_IMAGE || 
-                tag_word == DRAWTAG_BLURRED_ROUNDED_RECT
+                tag_word == DRAWTAG_BLURRED_ROUNDED_RECT ||
+                tag_word == DRAWTAG_BACKDROP_BLUR_RECT
             {
                 transform = read_transform(config.transform_base, bbox.trans_ix);
             }
@@ -259,6 +261,21 @@ fn main(
                     info[di + 9u] = scene[dd + 2u];
                 }
                 case DRAWTAG_BLURRED_ROUNDED_RECT: {
+                    info[di] = draw_flags;
+                    let inv = transform_inverse(transform);
+                    info[di + 1u] = bitcast<u32>(inv.matrx.x);
+                    info[di + 2u] = bitcast<u32>(inv.matrx.y);
+                    info[di + 3u] = bitcast<u32>(inv.matrx.z);
+                    info[di + 4u] = bitcast<u32>(inv.matrx.w);
+                    info[di + 5u] = bitcast<u32>(inv.translate.x);
+                    info[di + 6u] = bitcast<u32>(inv.translate.y);
+                    info[di + 7u] = scene[dd + 1u];
+                    info[di + 8u] = scene[dd + 2u];
+                    info[di + 9u] = scene[dd + 3u];
+                    info[di + 10u] = scene[dd + 4u];
+                }
+                case DRAWTAG_BACKDROP_BLUR_RECT: {
+                    // Phase 1: backdrop blur shares the same info payload as blurred rounded rect.
                     info[di] = draw_flags;
                     let inv = transform_inverse(transform);
                     info[di + 1u] = bitcast<u32>(inv.matrx.x);

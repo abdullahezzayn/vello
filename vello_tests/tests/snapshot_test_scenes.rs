@@ -3,15 +3,41 @@
 
 //! Snapshot tests using the test scenes from [`scenes`].
 
+use std::sync::{Mutex, OnceLock};
+
 use scenes::{ExampleScene, test_scenes};
 use vello_tests::{TestParams, encode_test_scene, snapshot_test_sync};
 
 /// Make sure the CPU and GPU renderers match on the test scenes
-fn snapshot_test_scene(test_scene: ExampleScene, mut params: TestParams) {
+fn snapshot_test_scene(test_scene: ExampleScene, params: TestParams) {
+    snapshot_test_scene_with_threshold(test_scene, params, 0.0095);
+}
+
+fn snapshot_test_scene_with_threshold(
+    test_scene: ExampleScene,
+    mut params: TestParams,
+    mean_threshold: f32,
+) {
     let scene = encode_test_scene(test_scene, &mut params);
     snapshot_test_sync(scene, &params)
         .unwrap()
-        .assert_mean_less_than(0.0095);
+        .assert_mean_less_than(mean_threshold);
+}
+
+fn backdrop_snapshot_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn snapshot_backdrop_scene_with_threshold(
+    test_scene: ExampleScene,
+    params: TestParams,
+    mean_threshold: f32,
+) {
+    let _lock = backdrop_snapshot_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    snapshot_test_scene_with_threshold(test_scene, params, mean_threshold);
 }
 
 #[test]
@@ -112,6 +138,133 @@ fn snapshot_blurred_rounded_rect() {
     let test_scene = test_scenes::blurred_rounded_rect();
     let params = TestParams::new("blurred_rounded_rect", 400, 400);
     snapshot_test_scene(test_scene, params);
+}
+
+#[test]
+#[cfg_attr(skip_gpu_tests, ignore)]
+fn snapshot_backdrop_blur_suite() {
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_basic(),
+        TestParams::new("backdrop_blur_basic", 460, 310),
+        0.0095,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_nested(),
+        TestParams::new("backdrop_blur_nested", 460, 340),
+        0.02,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_overlap_transform(),
+        TestParams::new("backdrop_blur_overlap_transform", 460, 310),
+        0.03,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_clipped_layer(),
+        TestParams::new("backdrop_blur_clipped_layer", 460, 310),
+        0.03,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_clipped_nested(),
+        TestParams::new("backdrop_blur_clipped_nested", 460, 320),
+        0.035,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_layered_nested(),
+        TestParams::new("backdrop_blur_layered_nested", 460, 320),
+        0.035,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_layered_nested_opaque(),
+        TestParams::new("backdrop_blur_layered_nested_opaque", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_layered_nested_src_over_alpha_sparse(),
+        TestParams::new("backdrop_blur_layered_nested_src_over_alpha_sparse", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_single_layer_active(),
+        TestParams::new("backdrop_blur_single_layer_active", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_layer(),
+        TestParams::new("backdrop_blur_blend_multiply_layer", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_sparse(),
+        TestParams::new("backdrop_blur_blend_multiply_sparse", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_post_pop_paint(),
+        TestParams::new("backdrop_blur_blend_multiply_post_pop_paint", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_transparent_span(),
+        TestParams::new("backdrop_blur_blend_multiply_transparent_span", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_closed_span(),
+        TestParams::new("backdrop_blur_blend_multiply_closed_span", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_zero_alpha_layer(),
+        TestParams::new("backdrop_blur_blend_multiply_zero_alpha_layer", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_luminance_mask_layer(),
+        TestParams::new("backdrop_blur_luminance_mask_layer", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_luminance_mask_post_pop_paint(),
+        TestParams::new("backdrop_blur_luminance_mask_post_pop_paint", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_prefixed_blend_layer(),
+        TestParams::new("backdrop_blur_prefixed_blend_layer", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_tail_active_paint(),
+        TestParams::new("backdrop_blur_blend_multiply_tail_active_paint", 460, 320),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_tail_active_after_first_backdrop(),
+        TestParams::new(
+            "backdrop_blur_blend_multiply_tail_active_after_first_backdrop",
+            460,
+            320,
+        ),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_intermediate_active_after_first_backdrop(),
+        TestParams::new(
+            "backdrop_blur_blend_multiply_intermediate_active_after_first_backdrop",
+            460,
+            320,
+        ),
+        0.04,
+    );
+    snapshot_backdrop_scene_with_threshold(
+        test_scenes::backdrop_blur_blend_multiply_intermediate_active_prefirst(),
+        TestParams::new(
+            "backdrop_blur_blend_multiply_intermediate_active_prefirst",
+            460,
+            320,
+        ),
+        0.04,
+    );
 }
 
 #[test]

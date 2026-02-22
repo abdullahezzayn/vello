@@ -41,10 +41,84 @@ use vello_encoding::{DrawBeginClip, Encoding, Glyph, GlyphRun, NormalizedCoord, 
 #[derive(Clone, Default)]
 pub struct Scene {
     encoding: Encoding,
+    backdrop_blur_ops: Vec<BackdropBlurOp>,
     #[cfg(feature = "bump_estimate")]
     estimator: vello_encoding::BumpEstimator,
 }
 static_assertions::assert_impl_all!(Scene: Send, Sync);
+
+#[derive(Clone, Debug)]
+pub(crate) struct BackdropBlurOp {
+    pub draw_index: u32,
+    pub transform: Affine,
+    pub rect: Rect,
+    pub radius: f64,
+    pub style: BackdropBlurStyle,
+}
+
+/// Edge handling for backdrop blur sampling.
+///
+/// Note that in phase 1 this is an API placeholder and does not yet alter
+/// raster behavior.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BackdropEdgeMode {
+    /// Duplicate edge pixels.
+    #[default]
+    Duplicate,
+    /// Mirror the image at the edge.
+    Mirror,
+    /// Clamp to transparent outside the sampling region.
+    ClampToTransparent,
+}
+
+/// Styling for backdrop blur rendering.
+///
+/// This style is intentionally small for phase 1 to establish the scene API and
+/// encoding surface. Additional material controls (for example saturation and
+/// luminosity adjustments) are planned in later phases.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BackdropBlurStyle {
+    /// Gaussian sigma in logical pixels.
+    pub sigma: f64,
+    /// Material tint color composited with the blurred backdrop.
+    pub tint: Color,
+    /// Edge behavior for backdrop samples.
+    pub edge_mode: BackdropEdgeMode,
+}
+
+impl BackdropBlurStyle {
+    /// Creates a backdrop blur style with the provided blur sigma.
+    pub fn new(sigma: f64) -> Self {
+        Self {
+            sigma,
+            ..Self::default()
+        }
+    }
+
+    /// Sets the tint color.
+    #[must_use]
+    pub fn with_tint(mut self, tint: Color) -> Self {
+        self.tint = tint;
+        self
+    }
+
+    /// Sets edge handling.
+    #[must_use]
+    pub fn with_edge_mode(mut self, edge_mode: BackdropEdgeMode) -> Self {
+        self.edge_mode = edge_mode;
+        self
+    }
+}
+
+impl Default for BackdropBlurStyle {
+    fn default() -> Self {
+        Self {
+            sigma: 18.0,
+            tint: Color::from_rgba8(0xff, 0xff, 0xff, 0x24),
+            edge_mode: BackdropEdgeMode::Duplicate,
+        }
+    }
+}
 
 impl Scene {
     /// Creates a new scene.
@@ -55,6 +129,7 @@ impl Scene {
     /// Removes all content from the scene.
     pub fn reset(&mut self) {
         self.encoding.reset();
+        self.backdrop_blur_ops.clear();
         #[cfg(feature = "bump_estimate")]
         self.estimator.reset();
     }
@@ -77,6 +152,11 @@ impl Scene {
     /// This can be used to more easily create invalid scenes, and so should be used with care.
     pub fn encoding_mut(&mut self) -> &mut Encoding {
         &mut self.encoding
+    }
+
+    #[cfg(feature = "wgpu")]
+    pub(crate) fn backdrop_blur_ops(&self) -> &[BackdropBlurOp] {
+        &self.backdrop_blur_ops
     }
 
     /// Pushes a new layer clipped by the specified shape and composed with
@@ -305,6 +385,73 @@ impl Scene {
         }
     }
 
+    /// Draw a rounded-rect backdrop blur treatment.
+    ///
+    /// This is similar to [`Self::draw_blurred_rounded_rect`], but uses a dedicated
+    /// draw tag for backdrop operations.
+    ///
+    /// Phase 1 note: this currently shares the same raster path as blurred rounded
+    /// rectangles while renderer-side backdrop sampling is being implemented.
+    pub fn draw_backdrop_blur(
+        &mut self,
+        transform: Affine,
+        rect: Rect,
+        radius: f64,
+        style: BackdropBlurStyle,
+    ) {
+        // The impulse response of a gaussian filter is infinite.
+        // For performance reason we cut off the filter at some extent where the response is close to zero.
+        let sigma = style.sigma.max(0.0);
+        let kernel_size = 2.5 * sigma;
+        let shape: Rect = rect.inflate(kernel_size, kernel_size);
+        self.draw_backdrop_blur_in(&shape, transform, rect, radius, style);
+    }
+
+    /// Draw a rounded-rect backdrop blur treatment in `shape`.
+    ///
+    /// This method effectively draws the backdrop blur treatment clipped to the given shape.
+    ///
+    /// Phase 1 note: this currently shares the same raster path as blurred rounded
+    /// rectangles while renderer-side backdrop sampling is being implemented.
+    pub fn draw_backdrop_blur_in(
+        &mut self,
+        shape: &impl Shape,
+        transform: Affine,
+        rect: Rect,
+        radius: f64,
+        style: BackdropBlurStyle,
+    ) {
+        let t = Transform::from_kurbo(&transform);
+        self.encoding.encode_transform(t);
+
+        self.encoding.encode_fill_style(Fill::NonZero);
+        if self.encoding.encode_shape(&shape, true) {
+            let brush_transform =
+                Transform::from_kurbo(&transform.pre_translate(rect.center().to_vec2()));
+            if self.encoding.encode_transform(brush_transform) {
+                self.encoding.swap_last_path_tags();
+            }
+            // Edge mode is part of the API now and will be consumed when the
+            // dedicated backdrop sampling path lands.
+            let _edge_mode = style.edge_mode;
+            let draw_index = self.encoding.draw_tags.len() as u32;
+            self.encoding.encode_backdrop_blur_rect(
+                style.tint,
+                rect.width() as _,
+                rect.height() as _,
+                radius as _,
+                style.sigma.max(0.0) as _,
+            );
+            self.backdrop_blur_ops.push(BackdropBlurOp {
+                draw_index,
+                transform,
+                rect,
+                radius,
+                style,
+            });
+        }
+    }
+
     /// Fills a shape using the specified style and brush.
     #[expect(
         single_use_lifetimes,
@@ -459,8 +606,17 @@ impl Scene {
     /// The given transform is applied to every transform in the child.
     /// This is an O(N) operation.
     pub fn append(&mut self, other: &Self, transform: Option<Affine>) {
+        let draw_tag_base = self.encoding.draw_tags.len() as u32;
         let t = transform.as_ref().map(Transform::from_kurbo);
         self.encoding.append(&other.encoding, &t);
+        self.backdrop_blur_ops
+            .extend(other.backdrop_blur_ops.iter().map(|op| BackdropBlurOp {
+                draw_index: op.draw_index + draw_tag_base,
+                transform: transform.map_or(op.transform, |xform| xform * op.transform),
+                rect: op.rect,
+                radius: op.radius,
+                style: op.style,
+            }));
         #[cfg(feature = "bump_estimate")]
         self.estimator.append(&other.estimator, t.as_ref());
     }
@@ -472,6 +628,7 @@ impl From<Encoding> for Scene {
         // removed at some point - see https://github.com/linebender/vello/issues/541
         Self {
             encoding,
+            backdrop_blur_ops: Vec::new(),
             #[cfg(feature = "bump_estimate")]
             estimator: vello_encoding::BumpEstimator::default(),
         }

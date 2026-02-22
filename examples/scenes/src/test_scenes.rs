@@ -109,6 +109,28 @@ export_scenes!(
     fn mmark(crate::mmark::MMark::new(80_000), "mmark", false)
     fn many_draw_objects(many_draw_objects)
     fn blurred_rounded_rect(blurred_rounded_rect)
+    fn backdrop_blur_basic(backdrop_blur_basic)
+    fn backdrop_blur_nested(backdrop_blur_nested)
+    fn backdrop_blur_overlap_transform(backdrop_blur_overlap_transform)
+    fn backdrop_blur_clipped_layer(backdrop_blur_clipped_layer)
+    fn backdrop_blur_clipped_nested(backdrop_blur_clipped_nested)
+    fn backdrop_blur_layered_nested(backdrop_blur_layered_nested)
+    fn backdrop_blur_layered_nested_opaque(backdrop_blur_layered_nested_opaque)
+    fn backdrop_blur_layered_nested_src_over_alpha_sparse(backdrop_blur_layered_nested_src_over_alpha_sparse)
+    fn backdrop_blur_blend_multiply_sparse(backdrop_blur_blend_multiply_sparse)
+    fn backdrop_blur_blend_multiply_post_pop_paint(backdrop_blur_blend_multiply_post_pop_paint)
+    fn backdrop_blur_blend_multiply_transparent_span(backdrop_blur_blend_multiply_transparent_span)
+    fn backdrop_blur_blend_multiply_closed_span(backdrop_blur_blend_multiply_closed_span)
+    fn backdrop_blur_blend_multiply_tail_active_paint(backdrop_blur_blend_multiply_tail_active_paint)
+    fn backdrop_blur_blend_multiply_tail_active_after_first_backdrop(backdrop_blur_blend_multiply_tail_active_after_first_backdrop)
+    fn backdrop_blur_blend_multiply_intermediate_active_after_first_backdrop(backdrop_blur_blend_multiply_intermediate_active_after_first_backdrop)
+    fn backdrop_blur_blend_multiply_intermediate_active_prefirst(backdrop_blur_blend_multiply_intermediate_active_prefirst)
+    fn backdrop_blur_blend_multiply_zero_alpha_layer(backdrop_blur_blend_multiply_zero_alpha_layer)
+    fn backdrop_blur_single_layer_active(backdrop_blur_single_layer_active)
+    fn backdrop_blur_prefixed_blend_layer(backdrop_blur_prefixed_blend_layer)
+    fn backdrop_blur_blend_multiply_layer(backdrop_blur_blend_multiply_layer)
+    fn backdrop_blur_luminance_mask_layer(backdrop_blur_luminance_mask_layer)
+    fn backdrop_blur_luminance_mask_post_pop_paint(backdrop_blur_luminance_mask_post_pop_paint)
     fn image_sampling(image_sampling)
     fn image_extend_modes_bilinear(impls::image_extend_modes(ImageQuality::Medium), "image_extend_modes (bilinear)", false)
     fn image_extend_modes_nearest_neighbor(impls::image_extend_modes(ImageQuality::Low), "image_extend_modes (nearest neighbor)", false)
@@ -1911,6 +1933,1226 @@ mod impls {
             palette::css::BLACK,
             radius,
             std_dev,
+        );
+    }
+
+    fn backdrop_background(scene: &mut Scene, bounds: Rect) {
+        let background = Gradient::new_linear((bounds.x0, bounds.y0), (bounds.x1, bounds.y1))
+            .with_stops([
+                Color::from_rgb8(21, 32, 58),
+                Color::from_rgb8(27, 58, 90),
+                Color::from_rgb8(43, 97, 125),
+            ]);
+        scene.fill(Fill::NonZero, Affine::IDENTITY, &background, None, &bounds);
+
+        for i in 0..7 {
+            let center = Point::new(110.0 + i as f64 * 130.0, 70.0 + (i % 3) as f64 * 170.0);
+            let radius = 58.0 + (i % 2) as f64 * 20.0;
+            let color = match i % 4 {
+                0 => Color::from_rgba8(255, 98, 130, 180),
+                1 => Color::from_rgba8(86, 190, 255, 165),
+                2 => Color::from_rgba8(122, 239, 188, 160),
+                _ => Color::from_rgba8(255, 208, 110, 170),
+            };
+            scene.fill(
+                Fill::NonZero,
+                Affine::IDENTITY,
+                color,
+                None,
+                &Circle::new(center, radius),
+            );
+        }
+
+        for i in 0..7 {
+            let y0 = 60.0 + i as f64 * 75.0;
+            let stripe = Rect::new(-120.0, y0, bounds.x1 + 120.0, y0 + 18.0);
+            scene.fill(
+                Fill::NonZero,
+                Affine::rotate(-13_f64.to_radians()),
+                Color::from_rgba8(255, 255, 255, 24),
+                None,
+                &stripe,
+            );
+        }
+    }
+
+    fn paint_material_panel(scene: &mut Scene, transform: Affine, rect: Rect, radius: f64) {
+        let panel = RoundedRect::from_rect(rect, radius);
+        scene.fill(
+            Fill::NonZero,
+            transform,
+            Color::from_rgba8(255, 255, 255, 20),
+            None,
+            &panel,
+        );
+        scene.stroke(
+            &Stroke::new(1.5),
+            transform,
+            Color::from_rgba8(255, 255, 255, 190),
+            None,
+            &panel,
+        );
+    }
+
+    pub(super) fn backdrop_blur_basic(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 620.).into());
+        params.base_color = Some(Color::from_rgb8(18, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 620.0);
+        backdrop_background(scene, bounds);
+
+        let panel_rect = Rect::new(150.0, 120.0, 770.0, 500.0);
+        let panel_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 46));
+        scene.draw_backdrop_blur(Affine::IDENTITY, panel_rect, 34.0, panel_style);
+        paint_material_panel(scene, Affine::IDENTITY, panel_rect, 34.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 85),
+            None,
+            &RoundedRect::from_rect(Rect::new(220.0, 190.0, 430.0, 242.0), 26.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 72),
+            None,
+            &RoundedRect::from_rect(Rect::new(220.0, 275.0, 700.0, 330.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 58),
+            None,
+            &RoundedRect::from_rect(Rect::new(220.0, 355.0, 650.0, 408.0), 18.0),
+        );
+    }
+
+    pub(super) fn backdrop_blur_nested(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 680.).into());
+        params.base_color = Some(Color::from_rgb8(16, 22, 36));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 680.0);
+        backdrop_background(scene, bounds);
+
+        let outer = Rect::new(110.0, 90.0, 810.0, 590.0);
+        let outer_style =
+            BackdropBlurStyle::new(22.0).with_tint(Color::from_rgba8(255, 255, 255, 40));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 42.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 42.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 70),
+            None,
+            &RoundedRect::from_rect(Rect::new(180.0, 145.0, 740.0, 198.0), 18.0),
+        );
+
+        let inner = Rect::new(280.0, 250.0, 640.0, 485.0);
+        let inner_style =
+            BackdropBlurStyle::new(10.0).with_tint(Color::from_rgba8(240, 248, 255, 74));
+        scene.draw_backdrop_blur(Affine::IDENTITY, inner, 28.0, inner_style);
+        paint_material_panel(scene, Affine::IDENTITY, inner, 28.0);
+
+        for i in 0..3 {
+            scene.fill(
+                Fill::NonZero,
+                Affine::IDENTITY,
+                Color::from_rgba8(255, 255, 255, 88),
+                None,
+                &Circle::new((350.0 + i as f64 * 86.0, 300.0), 18.0),
+            );
+        }
+    }
+
+    pub(super) fn backdrop_blur_overlap_transform(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 620.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 620.0);
+        backdrop_background(scene, bounds);
+
+        let left_rect = Rect::new(170.0, 170.0, 500.0, 470.0);
+        let left_style =
+            BackdropBlurStyle::new(20.0).with_tint(Color::from_rgba8(255, 255, 255, 42));
+        scene.draw_backdrop_blur(Affine::IDENTITY, left_rect, 38.0, left_style);
+        paint_material_panel(scene, Affine::IDENTITY, left_rect, 38.0);
+
+        let right_transform =
+            Affine::translate((635.0, 300.0)) * Affine::rotate(15_f64.to_radians());
+        let right_rect = Rect::from_center_size((0.0, 0.0), (320.0, 230.0));
+        let right_style =
+            BackdropBlurStyle::new(12.0).with_tint(Color::from_rgba8(230, 242, 255, 68));
+        scene.draw_backdrop_blur(right_transform, right_rect, 34.0, right_style);
+        paint_material_panel(scene, right_transform, right_rect, 34.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 76),
+            None,
+            &RoundedRect::from_rect(Rect::new(250.0, 260.0, 440.0, 318.0), 20.0),
+        );
+    }
+
+    pub(super) fn backdrop_blur_clipped_layer(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 620.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 620.0);
+        backdrop_background(scene, bounds);
+
+        let clip = Circle::new((470.0, 320.0), 220.0);
+        scene.push_clip_layer(Fill::NonZero, Affine::IDENTITY, &clip);
+        let style = BackdropBlurStyle::new(16.0).with_tint(Color::from_rgba8(255, 255, 255, 54));
+        let rect = Rect::new(250.0, 180.0, 690.0, 470.0);
+        scene.draw_backdrop_blur(Affine::IDENTITY, rect, 30.0, style);
+        paint_material_panel(scene, Affine::IDENTITY, rect, 30.0);
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 190),
+            None,
+            &clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_clipped_nested(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let clip = RoundedRect::from_rect(Rect::new(120.0, 90.0, 820.0, 560.0), 74.0);
+        scene.push_clip_layer(Fill::NonZero, Affine::IDENTITY, &clip);
+
+        let outer = Rect::new(180.0, 140.0, 760.0, 500.0);
+        let outer_style =
+            BackdropBlurStyle::new(20.0).with_tint(Color::from_rgba8(255, 255, 255, 46));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 34.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 34.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 74),
+            None,
+            &RoundedRect::from_rect(Rect::new(230.0, 205.0, 710.0, 255.0), 18.0),
+        );
+
+        let inner = Rect::new(300.0, 280.0, 650.0, 455.0);
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(236, 246, 255, 70));
+        scene.draw_backdrop_blur(Affine::IDENTITY, inner, 26.0, inner_style);
+        paint_material_panel(scene, Affine::IDENTITY, inner, 26.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 90),
+            None,
+            &Circle::new((352.0, 318.0), 16.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 90),
+            None,
+            &Circle::new((416.0, 318.0), 16.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 90),
+            None,
+            &Circle::new((480.0, 318.0), 16.0),
+        );
+
+        scene.pop_layer();
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 192),
+            None,
+            &clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_layered_nested(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_bounds = Rect::new(120.0, 100.0, 810.0, 550.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            0.86,
+            Affine::IDENTITY,
+            &layer_bounds,
+        );
+
+        let outer = Rect::new(170.0, 145.0, 760.0, 505.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 32.0);
+
+        let rotated = Affine::translate((600.0, 355.0)) * Affine::rotate(10_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (300.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(12.0).with_tint(Color::from_rgba8(232, 245, 255, 74));
+        scene.draw_backdrop_blur(rotated, inner, 26.0, inner_style);
+        paint_material_panel(scene, rotated, inner, 26.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 70),
+            None,
+            &RoundedRect::from_rect(Rect::new(230.0, 236.0, 540.0, 296.0), 20.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_bounds,
+        );
+    }
+
+    pub(super) fn backdrop_blur_single_layer_active(scene: &mut Scene, params: &mut SceneParams<'_>) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_bounds = RoundedRect::from_rect(Rect::new(128.0, 102.0, 804.0, 548.0), 54.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_bounds,
+        );
+
+        let panel = Rect::new(184.0, 152.0, 742.0, 500.0);
+        let panel_style =
+            BackdropBlurStyle::new(17.0).with_tint(Color::from_rgba8(255, 255, 255, 54));
+        scene.draw_backdrop_blur(Affine::IDENTITY, panel, 34.0, panel_style);
+        paint_material_panel(scene, Affine::IDENTITY, panel, 34.0);
+
+        let card_transform =
+            Affine::translate((598.0, 350.0)) * Affine::rotate(11_f64.to_radians());
+        let card = Rect::from_center_size((0.0, 0.0), (300.0, 196.0));
+        scene.fill(
+            Fill::NonZero,
+            card_transform,
+            Color::from_rgba8(255, 255, 255, 208),
+            None,
+            &RoundedRect::from_rect(card, 24.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(180, 239, 206, 104),
+            None,
+            &Circle::new((365.0, 332.0), 58.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 80),
+            None,
+            &RoundedRect::from_rect(Rect::new(252.0, 232.0, 510.0, 292.0), 18.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 176),
+            None,
+            &layer_bounds,
+        );
+    }
+
+    pub(super) fn backdrop_blur_layered_nested_opaque(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_bounds = RoundedRect::from_rect(Rect::new(122.0, 96.0, 816.0, 554.0), 60.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            1.0,
+            Affine::IDENTITY,
+            &layer_bounds,
+        );
+
+        let outer = Rect::new(178.0, 142.0, 768.0, 506.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 50));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 34.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 34.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 74),
+            None,
+            &RoundedRect::from_rect(Rect::new(232.0, 220.0, 548.0, 282.0), 18.0),
+        );
+
+        let rotated = Affine::translate((610.0, 354.0)) * Affine::rotate(10_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (304.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(234, 246, 255, 74));
+        scene.draw_backdrop_blur(rotated, inner, 26.0, inner_style);
+        paint_material_panel(scene, rotated, inner, 26.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(184, 238, 206, 96),
+            None,
+            &Circle::new((360.0, 338.0), 56.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 82),
+            None,
+            &RoundedRect::from_rect(Rect::new(258.0, 372.0, 604.0, 432.0), 20.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 176),
+            None,
+            &layer_bounds,
+        );
+    }
+
+    pub(super) fn backdrop_blur_layered_nested_src_over_alpha_sparse(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_bounds = RoundedRect::from_rect(Rect::new(122.0, 96.0, 816.0, 554.0), 60.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            0.74,
+            Affine::IDENTITY,
+            &layer_bounds,
+        );
+
+        let outer = Rect::new(178.0, 142.0, 768.0, 506.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 50));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 34.0, outer_style);
+
+        let rotated = Affine::translate((610.0, 354.0)) * Affine::rotate(10_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (304.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(234, 246, 255, 74));
+        scene.draw_backdrop_blur(rotated, inner, 26.0, inner_style);
+
+        paint_material_panel(scene, Affine::IDENTITY, outer, 34.0);
+        paint_material_panel(scene, rotated, inner, 26.0);
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(184, 238, 206, 96),
+            None,
+            &Circle::new((360.0, 338.0), 56.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 82),
+            None,
+            &RoundedRect::from_rect(Rect::new(258.0, 372.0, 604.0, 432.0), 20.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 176),
+            None,
+            &layer_bounds,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_layer(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(110.0, 90.0, 830.0, 560.0), 64.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.9,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 32.0);
+
+        let inner_transform =
+            Affine::translate((610.0, 345.0)) * Affine::rotate(12_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (300.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(235, 245, 255, 72));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+        paint_material_panel(scene, inner_transform, inner, 24.0);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 72),
+            None,
+            &RoundedRect::from_rect(Rect::new(230.0, 235.0, 525.0, 296.0), 18.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_sparse(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(110.0, 90.0, 830.0, 560.0), 64.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+
+        let inner_transform =
+            Affine::translate((610.0, 345.0)) * Affine::rotate(12_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (300.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(235, 245, 255, 72));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+
+        paint_material_panel(scene, Affine::IDENTITY, outer, 32.0);
+        paint_material_panel(scene, inner_transform, inner, 24.0);
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 72),
+            None,
+            &RoundedRect::from_rect(Rect::new(230.0, 235.0, 525.0, 296.0), 18.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_post_pop_paint(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(110.0, 90.0, 830.0, 560.0), 64.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+
+        let inner_transform =
+            Affine::translate((610.0, 345.0)) * Affine::rotate(12_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (300.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(235, 245, 255, 72));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+        scene.pop_layer();
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 76),
+            None,
+            &RoundedRect::from_rect(Rect::new(240.0, 214.0, 540.0, 288.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((640.0, 360.0)) * Affine::rotate(9_f64.to_radians()),
+            Color::from_rgba8(255, 255, 255, 214),
+            None,
+            &RoundedRect::from_rect(Rect::from_center_size((0.0, 0.0), (286.0, 196.0)), 22.0),
+        );
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_transparent_span(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(110.0, 90.0, 830.0, 560.0), 64.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+
+        // Transparent no-op paint while non-replay-safe layer parameters are active.
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 0),
+            None,
+            &RoundedRect::from_rect(Rect::new(240.0, 220.0, 560.0, 286.0), 16.0),
+        );
+
+        let inner_transform =
+            Affine::translate((610.0, 345.0)) * Affine::rotate(12_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (300.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(235, 245, 255, 72));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+        scene.pop_layer();
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 78),
+            None,
+            &RoundedRect::from_rect(Rect::new(250.0, 218.0, 570.0, 294.0), 18.0),
+        );
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_closed_span(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 32.0);
+
+        let multiply_clip = RoundedRect::from_rect(Rect::new(215.0, 180.0, 715.0, 470.0), 40.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &multiply_clip,
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 76),
+            None,
+            &RoundedRect::from_rect(Rect::new(258.0, 228.0, 556.0, 292.0), 20.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((614.0, 356.0)) * Affine::rotate(10_f64.to_radians()),
+            Color::from_rgba8(255, 255, 255, 208),
+            None,
+            &RoundedRect::from_rect(Rect::from_center_size((0.0, 0.0), (290.0, 198.0)), 22.0),
+        );
+        scene.pop_layer();
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 174),
+            None,
+            &multiply_clip,
+        );
+
+        let inner = Rect::new(292.0, 252.0, 632.0, 442.0);
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(236, 246, 255, 72));
+        scene.draw_backdrop_blur(Affine::IDENTITY, inner, 24.0, inner_style);
+        paint_material_panel(scene, Affine::IDENTITY, inner, 24.0);
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_tail_active_paint(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(110.0, 90.0, 830.0, 560.0), 64.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+
+        let inner_transform =
+            Affine::translate((610.0, 345.0)) * Affine::rotate(12_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (300.0, 210.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(235, 245, 255, 72));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+
+        // Visible paint appears only in the final tail range while the non-replay-safe
+        // layer is still active.
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 80),
+            None,
+            &RoundedRect::from_rect(Rect::new(242.0, 220.0, 560.0, 288.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((620.0, 356.0)) * Affine::rotate(9_f64.to_radians()),
+            Color::from_rgba8(255, 255, 255, 212),
+            None,
+            &RoundedRect::from_rect(Rect::from_center_size((0.0, 0.0), (286.0, 194.0)), 22.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_tail_active_after_first_backdrop(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let first = Rect::new(158.0, 128.0, 760.0, 508.0);
+        let first_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, first, 32.0, first_style);
+        paint_material_panel(scene, Affine::IDENTITY, first, 32.0);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(180.0, 160.0, 790.0, 528.0), 44.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let second_transform =
+            Affine::translate((606.0, 352.0)) * Affine::rotate(11_f64.to_radians());
+        let second = Rect::from_center_size((0.0, 0.0), (302.0, 210.0));
+        let second_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(236, 246, 255, 72));
+        scene.draw_backdrop_blur(second_transform, second, 24.0, second_style);
+
+        // Tail paint while the non-replay-safe layer is still active.
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 82),
+            None,
+            &RoundedRect::from_rect(Rect::new(252.0, 230.0, 566.0, 298.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            second_transform,
+            Color::from_rgba8(255, 255, 255, 210),
+            None,
+            &RoundedRect::from_rect(second, 22.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 174),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_intermediate_active_after_first_backdrop(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let first = Rect::new(158.0, 128.0, 760.0, 508.0);
+        let first_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, first, 32.0, first_style);
+        paint_material_panel(scene, Affine::IDENTITY, first, 32.0);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(178.0, 156.0, 790.0, 532.0), 42.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let second_transform =
+            Affine::translate((604.0, 352.0)) * Affine::rotate(9_f64.to_radians());
+        let second = Rect::from_center_size((0.0, 0.0), (286.0, 198.0));
+        let second_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(236, 246, 255, 72));
+        scene.draw_backdrop_blur(second_transform, second, 24.0, second_style);
+
+        // Visible paint between second and third backdrops while the non-replay-safe
+        // layer remains active. This exercises intermediate boundary carry-over.
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 82),
+            None,
+            &RoundedRect::from_rect(Rect::new(246.0, 226.0, 562.0, 296.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            second_transform,
+            Color::from_rgba8(255, 255, 255, 210),
+            None,
+            &RoundedRect::from_rect(second, 22.0),
+        );
+
+        let third = Rect::new(278.0, 246.0, 642.0, 458.0);
+        let third_style =
+            BackdropBlurStyle::new(10.0).with_tint(Color::from_rgba8(236, 247, 255, 70));
+        scene.draw_backdrop_blur(Affine::IDENTITY, third, 22.0, third_style);
+        paint_material_panel(scene, Affine::IDENTITY, third, 22.0);
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 174),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_intermediate_active_prefirst(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(178.0, 156.0, 790.0, 532.0), 42.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.84,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let first = Rect::new(158.0, 128.0, 760.0, 508.0);
+        let first_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, first, 32.0, first_style);
+        paint_material_panel(scene, Affine::IDENTITY, first, 32.0);
+
+        let second_transform =
+            Affine::translate((604.0, 352.0)) * Affine::rotate(9_f64.to_radians());
+        let second = Rect::from_center_size((0.0, 0.0), (286.0, 198.0));
+        let second_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(236, 246, 255, 72));
+        scene.draw_backdrop_blur(second_transform, second, 24.0, second_style);
+
+        // Visible paint between second and third backdrops while the non-replay-safe
+        // layer started before the first backdrop. This currently remains on fallback.
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 82),
+            None,
+            &RoundedRect::from_rect(Rect::new(246.0, 226.0, 562.0, 296.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            second_transform,
+            Color::from_rgba8(255, 255, 255, 210),
+            None,
+            &RoundedRect::from_rect(second, 22.0),
+        );
+
+        let third = Rect::new(278.0, 246.0, 642.0, 458.0);
+        let third_style =
+            BackdropBlurStyle::new(10.0).with_tint(Color::from_rgba8(236, 247, 255, 70));
+        scene.draw_backdrop_blur(Affine::IDENTITY, third, 22.0, third_style);
+        paint_material_panel(scene, Affine::IDENTITY, third, 22.0);
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 174),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_blend_multiply_zero_alpha_layer(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let layer_clip = RoundedRect::from_rect(Rect::new(110.0, 90.0, 830.0, 560.0), 64.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.0,
+            Affine::IDENTITY,
+            &layer_clip,
+        );
+
+        let outer = Rect::new(165.0, 135.0, 760.0, 510.0);
+        let outer_style =
+            BackdropBlurStyle::new(18.0).with_tint(Color::from_rgba8(255, 255, 255, 48));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 32.0, outer_style);
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 214),
+            None,
+            &RoundedRect::from_rect(Rect::new(240.0, 214.0, 540.0, 288.0), 18.0),
+        );
+
+        let inner_transform =
+            Affine::translate((640.0, 360.0)) * Affine::rotate(9_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (286.0, 196.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(235, 245, 255, 72));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(3.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &layer_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_prefixed_blend_layer(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        let pre_layer_clip = RoundedRect::from_rect(Rect::new(120.0, 94.0, 490.0, 338.0), 46.0);
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Multiply, Compose::SrcOver),
+            0.82,
+            Affine::IDENTITY,
+            &pre_layer_clip,
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 78),
+            None,
+            &RoundedRect::from_rect(Rect::new(146.0, 124.0, 460.0, 316.0), 28.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(126, 178, 255, 124),
+            None,
+            &Circle::new((215.0, 184.0), 58.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 136, 181, 116),
+            None,
+            &Circle::new((384.0, 246.0), 72.0),
+        );
+        scene.pop_layer();
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 170),
+            None,
+            &pre_layer_clip,
+        );
+
+        let outer = Rect::new(214.0, 176.0, 790.0, 526.0);
+        let outer_style =
+            BackdropBlurStyle::new(17.0).with_tint(Color::from_rgba8(255, 255, 255, 52));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 34.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 34.0);
+
+        let inner_transform =
+            Affine::translate((640.0, 356.0)) * Affine::rotate(9_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (292.0, 198.0));
+        let inner_style =
+            BackdropBlurStyle::new(11.0).with_tint(Color::from_rgba8(236, 246, 255, 74));
+        scene.draw_backdrop_blur(inner_transform, inner, 24.0, inner_style);
+        paint_material_panel(scene, inner_transform, inner, 24.0);
+    }
+
+    pub(super) fn backdrop_blur_luminance_mask_layer(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            1.0,
+            Affine::IDENTITY,
+            &bounds,
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 52),
+            None,
+            &RoundedRect::from_rect(Rect::new(160.0, 130.0, 760.0, 520.0), 56.0),
+        );
+
+        let mask_clip = RoundedRect::from_rect(Rect::new(190.0, 150.0, 735.0, 500.0), 44.0);
+        scene.push_luminance_mask_layer(Fill::NonZero, 1.0, Affine::IDENTITY, &mask_clip);
+
+        let outer = Rect::new(220.0, 175.0, 690.0, 470.0);
+        let outer_style =
+            BackdropBlurStyle::new(16.0).with_tint(Color::from_rgba8(255, 255, 255, 54));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 30.0, outer_style);
+        paint_material_panel(scene, Affine::IDENTITY, outer, 30.0);
+
+        let inner = Rect::new(315.0, 272.0, 620.0, 430.0);
+        let inner_style =
+            BackdropBlurStyle::new(10.0).with_tint(Color::from_rgba8(238, 247, 255, 76));
+        scene.draw_backdrop_blur(Affine::IDENTITY, inner, 22.0, inner_style);
+        paint_material_panel(scene, Affine::IDENTITY, inner, 22.0);
+
+        scene.pop_layer();
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 182),
+            None,
+            &mask_clip,
+        );
+    }
+
+    pub(super) fn backdrop_blur_luminance_mask_post_pop_paint(
+        scene: &mut Scene,
+        params: &mut SceneParams<'_>,
+    ) {
+        params.resolution = Some((920., 640.).into());
+        params.base_color = Some(Color::from_rgb8(16, 24, 40));
+
+        let bounds = Rect::new(0.0, 0.0, 920.0, 640.0);
+        backdrop_background(scene, bounds);
+
+        scene.push_layer(
+            Fill::NonZero,
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            1.0,
+            Affine::IDENTITY,
+            &bounds,
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 48),
+            None,
+            &RoundedRect::from_rect(Rect::new(160.0, 130.0, 760.0, 520.0), 56.0),
+        );
+
+        let mask_clip = RoundedRect::from_rect(Rect::new(190.0, 150.0, 735.0, 500.0), 44.0);
+        scene.push_luminance_mask_layer(Fill::NonZero, 1.0, Affine::IDENTITY, &mask_clip);
+
+        let outer = Rect::new(220.0, 175.0, 690.0, 470.0);
+        let outer_style =
+            BackdropBlurStyle::new(16.0).with_tint(Color::from_rgba8(255, 255, 255, 54));
+        scene.draw_backdrop_blur(Affine::IDENTITY, outer, 30.0, outer_style);
+
+        let inner_transform =
+            Affine::translate((560.0, 336.0)) * Affine::rotate(11_f64.to_radians());
+        let inner = Rect::from_center_size((0.0, 0.0), (298.0, 204.0));
+        let inner_style =
+            BackdropBlurStyle::new(10.0).with_tint(Color::from_rgba8(238, 247, 255, 76));
+        scene.draw_backdrop_blur(inner_transform, inner, 22.0, inner_style);
+
+        scene.pop_layer();
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 84),
+            None,
+            &RoundedRect::from_rect(Rect::new(242.0, 220.0, 566.0, 290.0), 18.0),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((618.0, 355.0)) * Affine::rotate(9_f64.to_radians()),
+            Color::from_rgba8(255, 255, 255, 212),
+            None,
+            &RoundedRect::from_rect(Rect::from_center_size((0.0, 0.0), (286.0, 194.0)), 22.0),
+        );
+        scene.pop_layer();
+
+        scene.stroke(
+            &Stroke::new(2.0),
+            Affine::IDENTITY,
+            Color::from_rgba8(255, 255, 255, 182),
+            None,
+            &mask_clip,
         );
     }
 

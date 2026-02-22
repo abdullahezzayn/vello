@@ -333,6 +333,12 @@ fn coarse_main(
                                 let rgba_color = scene[dd as usize];
                                 tile_state.write_blur_rect(config, bump, ptcl, rgba_color, di + 1);
                             }
+                            DrawTag::BACKDROP_BLUR_RECT => {
+                                // Phase 1 fallback: emit blur-rect fine commands.
+                                tile_state.write_path(config, bump, ptcl, tile, draw_flags);
+                                let rgba_color = scene[dd as usize];
+                                tile_state.write_blur_rect(config, bump, ptcl, rgba_color, di + 1);
+                            }
                             DrawTag::BEGIN_CLIP => {
                                 let even_odd = (draw_flags & DRAW_INFO_FLAGS_FILL_RULE_BIT) != 0;
                                 let backdrop_clear = if even_odd {

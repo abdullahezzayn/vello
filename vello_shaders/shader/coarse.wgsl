@@ -387,6 +387,13 @@ fn main(
                         let info_offset = di + 1u;
                         write_blurred_rounded_rect(CmdColor(rgba_color), info_offset);
                     }
+                    case DRAWTAG_BACKDROP_BLUR_RECT: {
+                        // Phase 1 fallback: emit the same fine command as blurred rounded rect.
+                        write_path(tile, tile_ix, draw_flags);
+                        let rgba_color = scene[dd];
+                        let info_offset = di + 1u;
+                        write_blurred_rounded_rect(CmdColor(rgba_color), info_offset);
+                    }
                     case DRAWTAG_FILL_LIN_GRADIENT: {
                         write_path(tile, tile_ix, draw_flags);
                         let index = scene[dd];

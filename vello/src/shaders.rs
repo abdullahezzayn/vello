@@ -36,6 +36,11 @@ pub struct FullShaders {
     pub coarse: ShaderId,
     pub path_tiling_setup: ShaderId,
     pub path_tiling: ShaderId,
+    pub backdrop_blur_h: ShaderId,
+    pub backdrop_blur_v: ShaderId,
+    pub backdrop_apply: ShaderId,
+    pub backdrop_copy: ShaderId,
+    pub backdrop_src_over: ShaderId,
     pub fine_area: Option<ShaderId>,
     pub fine_msaa8: Option<ShaderId>,
     pub fine_msaa16: Option<ShaderId>,
@@ -204,6 +209,53 @@ pub(crate) fn full_shaders(
             Buffer,
         ]
     );
+    let backdrop_blur_h = add_shader!(
+        backdrop_blur_h,
+        [
+            Uniform,
+            ImageRead(ImageFormat::Rgba8),
+            Image(ImageFormat::Rgba8),
+        ],
+        CpuShaderType::Missing
+    );
+    let backdrop_blur_v = add_shader!(
+        backdrop_blur_v,
+        [
+            Uniform,
+            ImageRead(ImageFormat::Rgba8),
+            Image(ImageFormat::Rgba8),
+        ],
+        CpuShaderType::Missing
+    );
+    let backdrop_apply = add_shader!(
+        backdrop_apply,
+        [
+            Uniform,
+            ImageRead(ImageFormat::Rgba8),
+            ImageRead(ImageFormat::Rgba8),
+            Image(ImageFormat::Rgba8),
+        ],
+        CpuShaderType::Missing
+    );
+    let backdrop_copy = add_shader!(
+        backdrop_copy,
+        [
+            Uniform,
+            ImageRead(ImageFormat::Rgba8),
+            Image(ImageFormat::Rgba8),
+        ],
+        CpuShaderType::Missing
+    );
+    let backdrop_src_over = add_shader!(
+        backdrop_src_over,
+        [
+            Uniform,
+            ImageRead(ImageFormat::Rgba8),
+            ImageRead(ImageFormat::Rgba8),
+            Image(ImageFormat::Rgba8),
+        ],
+        CpuShaderType::Missing
+    );
     let fine_resources = [
         Uniform,
         BufReadOnly,
@@ -266,6 +318,11 @@ pub(crate) fn full_shaders(
         coarse,
         path_tiling_setup,
         path_tiling,
+        backdrop_blur_h,
+        backdrop_blur_v,
+        backdrop_apply,
+        backdrop_copy,
+        backdrop_src_over,
         fine_area,
         fine_msaa8,
         fine_msaa16,

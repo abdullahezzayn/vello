@@ -35,6 +35,11 @@ impl DrawTag {
 
     /// Blurred rounded rectangle.
     pub const BLUR_RECT: Self = Self(0x2d4); // info: 11, scene: 5 (DrawBlurRoundedRect)
+    /// Backdrop blur rounded rectangle.
+    ///
+    /// This is currently routed through the same raster command as [`Self::BLUR_RECT`]
+    /// in the renderer while dedicated backdrop sampling is being implemented.
+    pub const BACKDROP_BLUR_RECT: Self = Self(0x6d4); // info: 11, scene: 5 (DrawBackdropBlurRect)
 
     /// Begin layer/clip.
     pub const BEGIN_CLIP: Self = Self(0x49);
@@ -174,6 +179,25 @@ pub struct DrawImage {
 #[repr(C)]
 pub struct DrawBlurRoundedRect {
     /// Solid color brush.
+    pub color: DrawColor,
+    /// Rectangle width.
+    pub width: f32,
+    /// Rectangle height.
+    pub height: f32,
+    /// Rectangle corner radius.
+    pub radius: f32,
+    /// Standard deviation of gaussian filter.
+    pub std_dev: f32,
+}
+
+/// Draw data for a backdrop blur rounded rectangle.
+///
+/// The payload matches [`DrawBlurRoundedRect`] so phase 1 can share the existing
+/// raster command path while introducing a dedicated draw tag.
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
+#[repr(C)]
+pub struct DrawBackdropBlurRect {
+    /// Tint color.
     pub color: DrawColor,
     /// Rectangle width.
     pub width: f32,

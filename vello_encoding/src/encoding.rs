@@ -4,9 +4,9 @@
 use crate::DrawBeginClip;
 
 use super::{
-    DrawBlurRoundedRect, DrawColor, DrawImage, DrawLinearGradient, DrawRadialGradient,
-    DrawSweepGradient, DrawTag, Glyph, GlyphRun, NormalizedCoord, Patch, PathEncoder, PathTag,
-    Style, Transform,
+    DrawBackdropBlurRect, DrawBlurRoundedRect, DrawColor, DrawImage, DrawLinearGradient,
+    DrawRadialGradient, DrawSweepGradient, DrawTag, Glyph, GlyphRun, NormalizedCoord, Patch,
+    PathEncoder, PathTag, Style, Transform,
 };
 
 use peniko::color::{DynamicColor, palette};
@@ -465,6 +465,28 @@ impl Encoding {
         self.draw_data
             .extend_from_slice(bytemuck::cast_slice(bytemuck::bytes_of(
                 &DrawBlurRoundedRect {
+                    color: color.into(),
+                    width,
+                    height,
+                    radius,
+                    std_dev,
+                },
+            )));
+    }
+
+    // Encodes a backdrop blur rounded rectangle brush.
+    pub fn encode_backdrop_blur_rect(
+        &mut self,
+        color: impl Into<DrawColor>,
+        width: f32,
+        height: f32,
+        radius: f32,
+        std_dev: f32,
+    ) {
+        self.draw_tags.push(DrawTag::BACKDROP_BLUR_RECT);
+        self.draw_data
+            .extend_from_slice(bytemuck::cast_slice(bytemuck::bytes_of(
+                &DrawBackdropBlurRect {
                     color: color.into(),
                     width,
                     height,

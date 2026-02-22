@@ -142,7 +142,7 @@ use peniko::ImageData;
 #[cfg(feature = "wgpu")]
 pub use wgpu;
 
-pub use scene::{DrawGlyphs, Scene};
+pub use scene::{BackdropBlurStyle, BackdropEdgeMode, DrawGlyphs, Scene};
 pub use vello_encoding::{Glyph, NormalizedCoord};
 
 use low_level::ShaderId;
